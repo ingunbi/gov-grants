@@ -1,16 +1,15 @@
-# 매일 아침 6시(KST)에 공고 수집 → 요약 → 빌드 → GitHub Pages 배포
+# 매일 아침 6시(KST)에 공고 수집 → 요약 → 빌드 확인 → data/live 커밋·push
+# 배포는 Cloudflare Pages(gov-grants)가 GitHub에 연결돼 있어 push를 받으면 알아서 빌드·배포함 (토큰 불필요)
+#   Pages 빌드 설정: pip install -r requirements.txt && python run.py build → dist/ (PYTHON_VERSION=3.12)
 #
-# 저장소 설정에서 준비할 것
+# 저장소 설정에서 준비할 것 (목록은 .github/required-secrets.txt)
 #   Settings > Secrets and variables > Actions
 #     Secrets:
 #       BIZINFO_API_KEY          기업마당 API 키 (필수)
 #       CLAUDE_CODE_OAUTH_TOKEN  Claude 구독으로 요약. 내 컴퓨터에서 `claude setup-token`으로 발급 (1년 유효)
-#       CLOUDFLARE_API_TOKEN     있으면 Cloudflare(Workers 정적 사이트)로 배포, 없으면 GitHub Pages
-#       CLOUDFLARE_ACCOUNT_ID    Cloudflare 계정 ID
-#     Variables: SITE_BASE_URL(GitHub Pages 주소), CF_BASE_URL(Cloudflare 주소),
-#                선택: SUMMARY_LIMIT(하루 요약 건수, 기본 50), ADSENSE_CLIENT, ADSENSE_SLOT
+#     Variables (선택): SUMMARY_LIMIT(하루 요약 건수, 기본 50)
 #   키 등록은 ~/dev/services/grant-sites/scripts/set-secrets.sh 가 .github/required-secrets.txt를 읽어 한 번에 한다.
-#   GitHub Pages를 쓸 때만: Settings > Pages > Source: GitHub Actions
+#   수집 시각(meta.fetched_at)이 매번 바뀌므로 실행할 때마다 커밋이 생기고, Cloudflare가 다시 빌드해 D-day·마감 상태가 갱신됨
 name: daily-update
 
 on:
@@ -20,8 +19,6 @@ on:
 
 permissions:
   contents: write # data/live 갱신 커밋
-  pages: write
-  id-token: write
 
 concurrency:
   group: daily-update
@@ -30,9 +27,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.check.outputs.ready }}
-      target: ${{ steps.check.outputs.target }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,31 +39,20 @@ jobs:
 
       - run: python -m unittest discover -s tests -t .
 
-      # 키를 넣기 전에는 수집·배포를 건너뛰고 경고만 남긴다(매일 실패 메일이 오지 않게).
+      # 키를 넣기 전에는 수집·커밋을 건너뛰고 경고만 남긴다(매일 실패 메일이 오지 않게).
       - name: 키 확인
         id: check
         env:
           BIZINFO_API_KEY: ${{ secrets.BIZINFO_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_BASE_URL: ${{ vars.CF_BASE_URL }}
-          GH_BASE_URL: ${{ vars.SITE_BASE_URL }}
         run: |
           if [ -z "$BIZINFO_API_KEY" ]; then
-            echo "::warning::BIZINFO_API_KEY 시크릿이 없어 수집·배포를 건너뜁니다. Settings > Secrets and variables > Actions에서 추가하세요."
+            echo "::warning::BIZINFO_API_KEY 시크릿이 없어 수집을 건너뜁니다. ~/dev/services/grant-sites/scripts/set-secrets.sh 를 실행하세요."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
           if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then echo "claude=true" >> "$GITHUB_OUTPUT"; fi
-          # 배포 대상: Cloudflare 토큰이 있으면 Cloudflare, 없으면 GitHub Pages. 주소(base_url)도 대상에 맞춘다.
-          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "target=cloudflare" >> "$GITHUB_OUTPUT"
-            echo "base_url=$CF_BASE_URL" >> "$GITHUB_OUTPUT"
-          else
-            echo "target=github" >> "$GITHUB_OUTPUT"
-            echo "base_url=$GH_BASE_URL" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: 공고 수집
         if: steps.check.outputs.ready == 'true'
@@ -79,7 +62,7 @@ jobs:
 
       # --- 구독(Claude Code)으로 새 공고 요약 -------------------------------
       - uses: actions/setup-node@v4
-        if: steps.check.outputs.ready == 'true' && (steps.check.outputs.claude == 'true' || steps.check.outputs.target == 'cloudflare')
+        if: steps.check.outputs.ready == 'true' && steps.check.outputs.claude == 'true'
         with:
           node-version: 22
 
@@ -102,14 +85,12 @@ jobs:
         if: steps.check.outputs.ready == 'true' && steps.check.outputs.claude == 'true'
         run: python run.py import
 
-      - name: 빌드
+      # 배포는 Cloudflare가 하지만, 깨진 데이터를 올리지 않도록 여기서도 한 번 빌드해 본다
+      - name: 빌드 확인
         if: steps.check.outputs.ready == 'true'
         run: python run.py build
-        env:
-          SITE_BASE_URL: ${{ steps.check.outputs.base_url }}
-          ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
-          ADSENSE_SLOT: ${{ vars.ADSENSE_SLOT }}
 
+      # push하면 Cloudflare Pages가 빌드·배포 (GitHub 연동)
       - name: 데이터 변경분 커밋
         if: steps.check.outputs.ready == 'true'
         run: |
@@ -118,26 +99,3 @@ jobs:
           git add data/live
           git diff --cached --quiet || git commit -m "data: $(TZ=Asia/Seoul date +%F) 공고 갱신"
           git push
-
-      - name: Cloudflare에 배포
-        if: steps.check.outputs.ready == 'true' && steps.check.outputs.target == 'cloudflare'
-        run: npx -y wrangler@4.166.0 deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - uses: actions/upload-pages-artifact@v3
-        if: steps.check.outputs.ready == 'true' && steps.check.outputs.target == 'github'
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    if: needs.build.outputs.ready == 'true' && needs.build.outputs.target == 'github'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4

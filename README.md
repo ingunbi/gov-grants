@@ -7,9 +7,12 @@
   fetch     기업마당 API → data/live/notices.json (신규·변경 감지, 오래된 공고 정리)
   summarize Claude 구독(Claude Code)으로 새 공고만 구조화 요약 → data/live/enrich.json
             (run.py queue → claude -p prompts/summarize.md → run.py import, 하루 최대 50건)
-  build     Jinja 템플릿 → dist/ (공고·분야·지역·마감임박 페이지, sitemap, RSS)
-  deploy    Cloudflare(Workers 정적 사이트), 토큰이 없으면 GitHub Pages
+  build     Jinja 템플릿 → dist/ 로 한 번 빌드해 보고(확인용) data/live를 커밋·push
+[push를 받으면 Cloudflare Pages]
+  build     pip install -r requirements.txt && python run.py build → dist/ 배포
 ```
+
+사이트 주소: <https://gov-grants.pages.dev>
 
 AI 처리는 전부 Claude 구독으로 합니다. API 키는 쓰지 않습니다.
 
@@ -34,24 +37,17 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 요약은 아래 'Claude 구독으로 요약하기'를 보세요. 요약이 없어도 사이트는 원문 정보로 빌드됩니다.
 
-## 배포 (GitHub Pages)
+## 배포 (Cloudflare Pages — GitHub 연동)
 
-1. 이 폴더를 GitHub 저장소로 올립니다.
-2. Settings → Pages → Source를 **GitHub Actions**로.
-3. Settings → Secrets and variables → Actions:
-   - Secrets: `.github/required-secrets.txt`에 적힌 키(`BIZINFO_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLOUDFLARE_API_TOKEN`). `~/dev/services/grant-sites/scripts/set-secrets.sh`를 실행하면 한 번에 들어갑니다.
-   - Variables: `SITE_BASE_URL` (예: `https://계정.github.io/저장소`, 자체 도메인이면 그 주소)
-4. Actions 탭에서 `daily-update`를 한 번 수동 실행(Run workflow). 이후 매일 06:00에 자동으로 돕니다.
+- Cloudflare Pages 프로젝트 `gov-grants`가 GitHub `ingunbi/gov-grants`의 `main`에 연결돼 있습니다. push가 들어오면 Cloudflare가 직접 빌드해서(`pip install -r requirements.txt && python run.py build`, `PYTHON_VERSION=3.12`) `dist/`를 배포합니다. **배포용 토큰은 필요 없습니다.**
+- 빌드 설정과 환경변수는 Cloudflare 대시보드 › Workers & Pages › gov-grants › Settings에서 관리합니다.
+- 주소(canonical, sitemap)는 `site.config.json`의 `base_url`입니다. 도메인을 사면 Pages 프로젝트 › Custom domains에 연결하고 `base_url`만 바꿔 push하세요.
+- 예전 임시 주소 `gov-grants.ingunbi.workers.dev`는 `deploy/workers-dev-redirect/`의 Worker가 같은 경로의 pages.dev 주소로 301 이동시킵니다.
 
-### Cloudflare로 배포 (Workers 정적 사이트)
+GitHub Actions(`daily-update`)는 매일 06:00에 수집 → 요약 → 빌드 확인 → `data/live` 커밋·push까지만 합니다. 수집 시각이 매번 바뀌므로 실행할 때마다 커밋이 생기고, 그때마다 Cloudflare가 다시 빌드해 D-day·마감 상태가 갱신됩니다.
 
-`wrangler.jsonc`가 `dist/`를 Cloudflare Workers 정적 사이트로 올립니다. 로컬에서는:
-
-```bash
-npx wrangler deploy        # → https://gov-grants.<계정>.workers.dev
-```
-
-GitHub Actions에서 자동 배포하려면 Secrets에 `CLOUDFLARE_API_TOKEN`(대시보드 → My Profile → API Tokens → "Edit Cloudflare Workers" 템플릿)과 `CLOUDFLARE_ACCOUNT_ID`를, Variables에 `CF_BASE_URL`을 넣으세요. `CLOUDFLARE_API_TOKEN`이 있으면 워크플로가 GitHub Pages 대신 Cloudflare로 배포합니다.
+1. Secrets: `.github/required-secrets.txt`에 적힌 키(`BIZINFO_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`). `~/dev/services/grant-sites/scripts/set-secrets.sh`를 실행하면 한 번에 들어갑니다.
+2. Actions 탭에서 `daily-update`를 한 번 수동 실행(Run workflow). 이후 매일 06:00에 자동으로 돕니다.
 
 > **IP 제한 주의**: 기업마당 키가 신청서에 적은 IP에서만 동작하면, IP가 매번 바뀌는 GitHub Actions에서는 호출이 막힐 수 있습니다. 첫 실행 로그에서 `[fetch]` 오류가 나면 고정 IP 서버(작은 VPS, 집 Mac의 cron 등)에서 `run.py fetch`를 돌리고 `data/live`만 커밋하는 방식으로 바꾸세요.
 
@@ -76,7 +72,7 @@ claude -p "$(cat prompts/summarize.md)" --permission-mode acceptEdits --allowedT
 | 키 | 설명 |
 |---|---|
 | `site_name`, `tagline` | 사이트 이름·설명 |
-| `base_url` | 정식 주소 (canonical, sitemap에 사용). 환경변수 `SITE_BASE_URL`이 우선 |
+| `base_url` | 정식 주소 (canonical, sitemap에 사용). Cloudflare 빌드도 이 값을 씀. 환경변수 `SITE_BASE_URL`이 우선 |
 | `adsense_client`, `adsense_slot` | 애드센스 승인 후 입력하면 광고 스크립트, 광고 자리, `ads.txt`가 자동으로 들어감 |
 | `closing_soon_days` | 며칠 남으면 '마감 임박'으로 볼지 (기본 7) |
 | `retain_closed_days` | 마감 후 며칠까지 페이지를 유지할지 (기본 180) |
