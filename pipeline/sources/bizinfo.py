@@ -45,7 +45,8 @@ COMBINED_REGION_TAGS = {"전남광주": ("전남", "광주")}
 _REGION_BY_ALIAS = {alias: name for name, aliases in REGIONS.items() for alias in aliases}
 NATIONWIDE = "전국"
 
-ALWAYS_WORDS = ("상시", "수시", "소진")
+# 날짜 없이 '끝날 때까지 받는' 공고. 실데이터 예: "예산 소진시까지", "상시 접수", "선착순 접수", "모집 완료시"
+ALWAYS_WORDS = ("상시", "수시", "소진", "선착순", "완료시", "완료 시", "마감시", "마감 시")
 _DATE_RE = re.compile(r"(20\d{2})\s*[.\-/년]?\s*(\d{1,2})\s*[.\-/월]?\s*(\d{1,2})")
 
 
@@ -126,6 +127,9 @@ def extract_regions(hashtags: list[str]) -> list[str]:
         for name in names:
             if name not in found:
                 found.append(name)
+    # 전국 공고는 17개 시도 태그가 전부 붙어서 온다 → 지역 공고가 아니라 '전국'으로 본다.
+    if len(found) >= len(REGIONS) - 1:
+        return []
     order = list(REGIONS)
     return sorted(found, key=order.index)
 

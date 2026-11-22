@@ -26,6 +26,10 @@ class ParsePeriodTest(unittest.TestCase):
     def test_end_only(self):
         self.assertEqual(bizinfo.parse_period("~ 20261231"), (None, date(2026, 12, 31), "range"))
 
+    def test_first_come_is_always(self):
+        self.assertEqual(bizinfo.parse_period("선착순 접수")[2], "always")
+        self.assertEqual(bizinfo.parse_period("모집 완료시까지")[2], "always")
+
     def test_garbage(self):
         self.assertEqual(bizinfo.parse_period("추후 공지"), (None, None, "unknown"))
 
@@ -59,6 +63,11 @@ class NormalizeTest(unittest.TestCase):
         self.assertEqual(n["id"], "PBLN_2")
         self.assertEqual(n["category"], "기타")
         self.assertEqual(n["regions"], ["광주", "전남"])
+
+    def test_all_regions_means_nationwide(self):
+        tags = ",".join(bizinfo.REGIONS) + ",경영"
+        n = bizinfo.normalize({"pblancId": "PBLN_3", "pblancNm": "전국 공고", "hashtags": tags})
+        self.assertEqual(n["regions"], ["전국"])
 
     def test_missing_required(self):
         self.assertIsNone(bizinfo.normalize({"pblancNm": "id 없음"}))
