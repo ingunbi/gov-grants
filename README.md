@@ -39,6 +39,16 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
    - Variables: `SITE_BASE_URL` (예: `https://계정.github.io/저장소`, 자체 도메인이면 그 주소)
 4. Actions 탭에서 `daily-update`를 한 번 수동 실행(Run workflow). 이후 매일 06:00에 자동으로 돕니다.
 
+### Cloudflare로 배포 (Workers 정적 사이트)
+
+`wrangler.jsonc`가 `dist/`를 Cloudflare Workers 정적 사이트로 올립니다. 로컬에서는:
+
+```bash
+npx wrangler deploy        # → https://gov-grants.<계정>.workers.dev
+```
+
+GitHub Actions에서 자동 배포하려면 Secrets에 `CLOUDFLARE_API_TOKEN`(대시보드 → My Profile → API Tokens → "Edit Cloudflare Workers" 템플릿)과 `CLOUDFLARE_ACCOUNT_ID`를, Variables에 `CF_BASE_URL`을 넣으세요. `CLOUDFLARE_API_TOKEN`이 있으면 워크플로가 GitHub Pages 대신 Cloudflare로 배포합니다.
+
 > **IP 제한 주의**: 기업마당 키가 신청서에 적은 IP에서만 동작하면, IP가 매번 바뀌는 GitHub Actions에서는 호출이 막힐 수 있습니다. 첫 실행 로그에서 `[fetch]` 오류가 나면 고정 IP 서버(작은 VPS, 집 Mac의 cron 등)에서 `run.py fetch`를 돌리고 `data/live`만 커밋하는 방식으로 바꾸세요.
 
 ## Claude 구독으로 요약하기 (API 키 없이)

@@ -1,7 +1,7 @@
 {
   "site_name": "지원사업 레이더",
   "tagline": "오늘 신청할 수 있는 정부지원사업을 마감일 순으로",
-  "base_url": "https://ingunbi.github.io/gov-grants",
+  "base_url": "https://gov-grants.ingunbi.workers.dev",
   "adsense_client": "",
   "adsense_slot": "",
   "closing_soon_days": 7,
