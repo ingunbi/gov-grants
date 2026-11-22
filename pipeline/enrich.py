@@ -93,21 +93,28 @@ def _has_credentials() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
-def run(cfg: Config, limit: int | None = None) -> dict:
+def select_targets(cfg: Config, db: dict, cache: dict) -> list[dict]:
+    """요약이 필요한 공고: 캐시에 없거나 내용이 바뀐 진행 중 공고. 마감 임박 → 최신 등록 순."""
     today = today_kst()
+    targets = []
+    for n in db["items"].values():
+        entry = cache.get(n["id"])
+        if entry is not None and entry.get("hash") == n["hash"]:
+            continue
+        st = notice_status(n, today, cfg.closing_soon_days)
+        if st["status"] == "closed":
+            continue
+        targets.append((st, n))
+    # 안정 정렬 두 번: 최신 등록 순으로 깔고, 그 위에 마감 임박(남은 날짜 적은 순)을 올린다.
+    targets.sort(key=lambda t: (t[1].get("registered_at") or "", t[1]["id"]), reverse=True)
+    targets.sort(key=lambda t: (t[0]["status"] != "closing", t[0]["days_left"] if t[0]["status"] == "closing" else 0))
+    return [n for _, n in targets]
+
+
+def run(cfg: Config, limit: int | None = None) -> dict:
     db = store.load_notices(cfg.data_dir)
     cache = store.load_enrich(cfg.data_dir)
-
-    def stale(n: dict) -> bool:
-        entry = cache.get(n["id"])
-        return entry is None or entry.get("hash") != n["hash"]
-
-    targets = [
-        n
-        for n in db["items"].values()
-        if stale(n) and notice_status(n, today, cfg.closing_soon_days)["status"] != "closed"
-    ]
-    targets.sort(key=lambda n: (n.get("registered_at") or "", n["id"]), reverse=True)  # 최신 공고 먼저
+    targets = select_targets(cfg, db, cache)
     backlog = len(targets)
     targets = targets[: limit if limit is not None else cfg.llm_max_per_run]
     stats = {"backlog": backlog, "done": 0, "failed": 0, "input_tokens": 0, "output_tokens": 0}
@@ -170,4 +177,75 @@ def run(cfg: Config, limit: int | None = None) -> dict:
         f"[enrich] 완료 {stats['done']}건, 실패 {stats['failed']}건, "
         f"토큰 입력 {stats['input_tokens']:,} / 출력 {stats['output_tokens']:,}"
     )
+    return stats
+
+
+# ---------------------------------------------------------------------------
+# API 키 없이 Claude Code(구독)로 요약하는 경로
+#   1) run.py queue  → queue.json  : 요약할 공고 원문 목록
+#   2) Claude Code가 prompts/summarize.md 지시대로 inbox.json을 작성
+#   3) run.py import → 형식 검사 후 enrich.json에 합침
+# ---------------------------------------------------------------------------
+
+QUEUE_FILE = "queue.json"
+INBOX_FILE = "inbox.json"
+
+
+def export_queue(cfg: Config, limit: int) -> int:
+    db = store.load_notices(cfg.data_dir)
+    cache = store.load_enrich(cfg.data_dir)
+    targets = select_targets(cfg, db, cache)
+    batch = [{"id": n["id"], "hash": n["hash"], "notice": build_user_message(n)} for n in targets[:limit]]
+    path = cfg.data_dir / QUEUE_FILE
+    path.write_text(json.dumps(batch, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"[queue] {len(batch)}건을 {path.relative_to(cfg.data_dir.parent.parent)}에 썼습니다. (전체 대기 {len(targets)}건)")
+    return len(batch)
+
+
+def validate_result(obj) -> dict | None:
+    """Claude Code가 쓴 결과 1건이 SCHEMA를 지키는지 확인하고, 다듬은 dict를 돌려준다."""
+    if not isinstance(obj, dict):
+        return None
+    props = SCHEMA["properties"]
+    if set(obj) != set(props):
+        return None
+    clean = {}
+    for key, spec in props.items():
+        value = obj[key]
+        if spec["type"] == "string":
+            if not isinstance(value, str):
+                return None
+            clean[key] = value.strip()
+        else:
+            if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+                return None
+            clean[key] = [x.strip() for x in value if x.strip()]
+    return clean if clean["one_line"] else None
+
+
+def import_results(cfg: Config, paths: list) -> dict:
+    db = store.load_notices(cfg.data_dir)
+    cache = store.load_enrich(cfg.data_dir)
+    stats = {"ok": 0, "invalid": 0, "stale": 0}
+    for path in paths:
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        for row in rows if isinstance(rows, list) else []:
+            n = db["items"].get(row.get("id")) if isinstance(row, dict) else None
+            if n is None or row.get("hash") != n["hash"]:
+                stats["stale"] += 1  # 그사이 공고가 바뀌었거나 없는 id
+                continue
+            result = validate_result(row.get("result"))
+            if result is None:
+                stats["invalid"] += 1
+                continue
+            cache[n["id"]] = {
+                "hash": n["hash"],
+                "model": "claude-code",
+                "at": now_kst().isoformat(),
+                "status": "ok",
+                "result": result,
+            }
+            stats["ok"] += 1
+    store.save_enrich(cfg.data_dir, cache)
+    print(f"[import] 반영 {stats['ok']} · 형식 오류 {stats['invalid']} · 지난 내용 {stats['stale']}")
     return stats

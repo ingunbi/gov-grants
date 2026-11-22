@@ -4,6 +4,9 @@ __pycache__/
 .env
 dist/
 data/sample/
+data/live/queue.json
+data/live/inbox*.json
+data/live/batch_*.json
 *.tmp
 .DS_Store
 .claude/

@@ -108,7 +108,8 @@ def main() -> None:
     from pipeline.config import load_config
 
     p = argparse.ArgumentParser(description="지원사업 레이더 파이프라인")
-    p.add_argument("command", choices=["fetch", "enrich", "build", "all", "serve"])
+    p.add_argument("command", choices=["fetch", "enrich", "build", "all", "serve", "queue", "import"])
+    p.add_argument("files", nargs="*", help="import: Claude Code가 쓴 결과 파일들 (기본: data/<mode>/inbox.json)")
     p.add_argument("--sample", action="store_true", help="실데이터 대신 샘플 공고 사용 (data/sample/)")
     p.add_argument("--limit", type=int, default=None, help="요약할 최대 공고 수 (기본: 설정값)")
     p.add_argument("--drafts", action="store_true", help="draft: true인 해설 글도 포함")
@@ -118,6 +119,21 @@ def main() -> None:
     cfg = load_config(sample=args.sample)
     if args.command == "serve":
         return cmd_serve(args.port, cfg.base_path)
+    if args.command in ("queue", "import"):
+        from pipeline import enrich
+
+        if args.command == "queue":
+            enrich.export_queue(cfg, args.limit if args.limit is not None else cfg.llm_max_per_run)
+        else:
+            paths = [Path(f) for f in args.files] or [cfg.data_dir / enrich.INBOX_FILE]
+            existing = [p for p in paths if p.exists()]
+            if not existing:
+                print("[import] 가져올 결과 파일이 없습니다.")
+                return
+            enrich.import_results(cfg, existing)
+            for p in existing:
+                p.unlink()
+        return
     if args.command in ("fetch", "all"):
         cmd_fetch(cfg)
     if args.command in ("enrich", "all"):

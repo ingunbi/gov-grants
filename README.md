@@ -41,6 +41,22 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 > **IP 제한 주의**: 기업마당 키가 신청서에 적은 IP에서만 동작하면, IP가 매번 바뀌는 GitHub Actions에서는 호출이 막힐 수 있습니다. 첫 실행 로그에서 `[fetch]` 오류가 나면 고정 IP 서버(작은 VPS, 집 Mac의 cron 등)에서 `run.py fetch`를 돌리고 `data/live`만 커밋하는 방식으로 바꾸세요.
 
+## Claude 구독으로 요약하기 (API 키 없이)
+
+API 대신 Claude Code(Pro/Max 구독)로 요약할 수 있습니다. 매일 워크플로가 아래 순서로 돕니다.
+
+```
+run.py queue --limit 50   → data/live/queue.json (요약할 공고, 마감 임박 먼저)
+claude -p prompts/summarize.md → data/live/inbox.json
+run.py import             → 형식 검사 후 enrich.json에 반영
+```
+
+1. 내 컴퓨터 터미널에서 `claude setup-token` 실행 → 나온 토큰(1년 유효)을 복사
+2. `gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo <계정>/<저장소>` 로 등록
+3. 하루 처리 건수는 저장소 변수 `SUMMARY_LIMIT`(기본 50)로 조절
+
+구독 사용량 한도를 같이 쓰므로, 한도에 걸린 날은 요약만 건너뛰고 사이트는 그대로 배포됩니다. 로컬에서 Claude Code 세션으로 직접 돌려도 같은 파일 흐름(`queue` → `prompts/summarize.md` → `import`)을 쓰면 됩니다.
+
 ## 설정 (`site.config.json`)
 
 | 키 | 설명 |

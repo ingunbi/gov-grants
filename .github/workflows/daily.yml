@@ -2,8 +2,11 @@
 #
 # 저장소 설정에서 준비할 것
 #   Settings > Secrets and variables > Actions
-#     Secrets:   BIZINFO_API_KEY, ANTHROPIC_API_KEY
-#     Variables: SITE_BASE_URL (예: https://<계정>.github.io/<저장소>), 선택: LLM_MODEL, ADSENSE_CLIENT, ADSENSE_SLOT
+#     Secrets:
+#       BIZINFO_API_KEY          기업마당 API 키 (필수)
+#       CLAUDE_CODE_OAUTH_TOKEN  Claude 구독으로 요약할 때. 내 컴퓨터에서 `claude setup-token`으로 발급 (1년 유효)
+#       ANTHROPIC_API_KEY        구독 대신 API로 요약할 때 (선택)
+#     Variables: SITE_BASE_URL, 선택: SUMMARY_LIMIT(하루 요약 건수, 기본 50), LLM_MODEL, ADSENSE_CLIENT, ADSENSE_SLOT
 #   Settings > Pages > Source: GitHub Actions
 name: daily-update
 
@@ -43,6 +46,7 @@ jobs:
         id: check
         env:
           BIZINFO_API_KEY: ${{ secrets.BIZINFO_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           if [ -z "$BIZINFO_API_KEY" ]; then
             echo "::warning::BIZINFO_API_KEY 시크릿이 없어 수집·배포를 건너뜁니다. Settings > Secrets and variables > Actions에서 추가하세요."
@@ -50,15 +54,52 @@ jobs:
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then echo "claude=true" >> "$GITHUB_OUTPUT"; fi
 
-      - name: 수집 · 요약 · 빌드
+      - name: 공고 수집
         if: steps.check.outputs.ready == 'true'
-        run: python run.py all
+        run: python run.py fetch
         env:
           BIZINFO_API_KEY: ${{ secrets.BIZINFO_API_KEY }}
+
+      # --- 구독(Claude Code)으로 새 공고 요약 -------------------------------
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true' && steps.check.outputs.claude == 'true'
+        with:
+          node-version: 22
+
+      - name: Claude Code로 요약
+        if: steps.check.outputs.ready == 'true' && steps.check.outputs.claude == 'true'
+        continue-on-error: true # 구독 사용량 한도에 걸려도 사이트는 그대로 배포
+        timeout-minutes: 30
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUMMARY_LIMIT: ${{ vars.SUMMARY_LIMIT || '50' }}
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          python run.py queue --limit "$SUMMARY_LIMIT"
+          claude -p "$(cat prompts/summarize.md)" \
+            --permission-mode acceptEdits \
+            --allowedTools "Read,Write,Edit" \
+            --max-turns 30
+
+      - name: 요약 결과 반영
+        if: steps.check.outputs.ready == 'true' && steps.check.outputs.claude == 'true'
+        run: python run.py import
+
+      # --- API로 요약 (ANTHROPIC_API_KEY가 있을 때만 실제로 호출) -------------
+      - name: API로 요약
+        if: steps.check.outputs.ready == 'true'
+        run: python run.py enrich
+        env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          SITE_BASE_URL: ${{ vars.SITE_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
+
+      - name: 빌드
+        if: steps.check.outputs.ready == 'true'
+        run: python run.py build
+        env:
+          SITE_BASE_URL: ${{ vars.SITE_BASE_URL }}
           ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
           ADSENSE_SLOT: ${{ vars.ADSENSE_SLOT }}
 
