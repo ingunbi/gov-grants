@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>{{ site.site_name }} 새 공고</title>
+  <link>{{ site.site_url }}/</link>
+  <description>{{ site.tagline }}</description>
+  <language>ko</language>
+  <lastBuildDate>{{ build_date }}</lastBuildDate>
+  {% for n in items %}
+  <item>
+    <title>[{{ n.dday_label }}] {{ n.title }}</title>
+    <link>{{ site.site_url }}{{ n.path }}</link>
+    <guid isPermaLink="true">{{ site.site_url }}{{ n.path }}</guid>
+    <category>{{ n.cat_name }}</category>
+    <pubDate>{{ rfc822(n.first_seen) }}</pubDate>
+    <description>{{ n.snippet }} (신청기간 {{ n.period_display }}, {{ n.agency }})</description>
+  </item>
+  {% endfor %}
+</channel>
+</rss>

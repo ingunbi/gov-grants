@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}사이트 소개 | {{ site.site_name }}{% endblock %}
+{% block content %}
+<article class="post">
+  <header class="page-head"><h1>사이트 소개</h1></header>
+  <div class="prose">
+    <p>{{ site.site_name }}은(는) 정부·지자체가 공고하는 기업 지원사업을 한곳에 모아, 마감일 순으로 보여주는 사이트입니다.</p>
+    <h2>정보는 어디서 오나요?</h2>
+    <p>공고 정보는 <a href="https://www.bizinfo.go.kr/" rel="noopener">기업마당</a>의 지원사업정보 API에서 매일 아침 자동으로 받아옵니다. 각 공고 페이지에는 원문 링크를 함께 표시합니다.</p>
+    <h2>요약은 누가 쓰나요?</h2>
+    <p>공고 페이지의 '30초 요약'은 원문을 바탕으로 AI가 정리한 내용입니다. 원문에 없는 내용은 쓰지 않도록 설계했지만 오류가 있을 수 있습니다. 신청 자격, 금액, 일정은 반드시 원문 공고에서 확인하세요.</p>
+    <h2>면책</h2>
+    <p>이 사이트는 공고를 정리해 보여줄 뿐이며 사업의 선정이나 지원을 보장하지 않습니다. 정보의 오류나 지연으로 생긴 불이익에 대해 책임지지 않습니다.</p>
+  </div>
+</article>
+{% endblock %}

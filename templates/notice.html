@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card, ad %}
+{% block title %}{{ n.title }} - 신청기간·지원대상 정리 | {{ site.site_name }}{% endblock %}
+{% block description %}{{ n.meta_description }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block head %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "홈", "item": site.site_url ~ "/"},
+    {"@type": "ListItem", "position": 2, "name": n.cat_name, "item": site.site_url ~ "/category/" ~ n.cat_slug ~ "/"},
+    {"@type": "ListItem", "position": 3, "name": n.title}
+  ]
+} | tojson }}</script>
+{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="현재 위치">
+  <a href="{{ base }}/">홈</a><span aria-hidden="true">›</span>
+  <a href="{{ base }}/category/{{ n.cat_slug }}/">{{ n.cat_name }}</a>
+</nav>
+
+<article class="notice">
+  <header class="notice-head">
+    <div class="card-tags">
+      <span class="badge badge-{{ n.status }}">{{ n.dday_label }}</span>
+      <span class="tag">{{ n.status_label }}</span>
+      <a class="tag" href="{{ base }}/category/{{ n.cat_slug }}/">{{ n.cat_name }}</a>
+      {% for r, slug in n.region_links %}<a class="tag tag-ghost" href="{{ base }}/region/{{ slug }}/">{{ r }}</a>{% endfor %}
+    </div>
+    <h1>{{ n.title }}</h1>
+  </header>
+
+  <dl class="facts">
+    <div><dt>신청기간</dt><dd>{{ n.period_display }}</dd></div>
+    {% if n.agency %}<div><dt>소관기관</dt><dd>{{ n.agency }}</dd></div>{% endif %}
+    {% if n.executor %}<div><dt>수행기관</dt><dd>{{ n.executor }}</dd></div>{% endif %}
+    {% if n.target %}<div><dt>지원대상</dt><dd>{{ n.target }}</dd></div>{% endif %}
+    {% if n.contact %}<div><dt>문의</dt><dd>{{ n.contact }}</dd></div>{% endif %}
+  </dl>
+
+  <div class="actions">
+    {% if n.url %}<a class="btn btn-primary" href="{{ n.url }}" rel="noopener" target="_blank">원문 공고 보기 ({{ n.source_name }})</a>{% endif %}
+    {% if n.apply_url %}<a class="btn" href="{{ n.apply_url }}" rel="noopener nofollow" target="_blank">신청 페이지</a>{% endif %}
+  </div>
+
+  {% if n.ai %}
+  <section class="summary-box" aria-labelledby="sum-title">
+    <h2 id="sum-title">30초 요약</h2>
+    <p class="one-line">{{ n.ai.one_line }}</p>
+    <div class="summary-grid">
+      {% if n.ai.eligibility %}<div><h3>누가</h3><ul>{% for x in n.ai.eligibility %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if n.ai.benefits %}<div><h3>무엇을</h3><ul>{% for x in n.ai.benefits %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if n.ai.amount %}<div><h3>얼마나</h3><p>{{ n.ai.amount }}</p></div>{% endif %}
+      {% if n.ai.how_to_apply %}<div><h3>어떻게</h3><ul>{% for x in n.ai.how_to_apply %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+    </div>
+    {% if n.ai.check_before %}
+    <div class="check-before"><h3>신청 전 확인</h3><ul>{% for x in n.ai.check_before %}<li>{{ x }}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if n.ai.good_for %}<p class="good-for"><strong>이런 분께 맞아요</strong> {{ n.ai.good_for }}</p>{% endif %}
+    <p class="fine">원문을 바탕으로 AI가 정리한 요약입니다. 세부 조건은 반드시 원문 공고에서 확인하세요.</p>
+  </section>
+  {% endif %}
+
+  {{ ad() }}
+
+  {% if n.summary_text %}
+  <section class="section">
+    <h2>사업 개요 (원문)</h2>
+    <div class="source-text">{{ n.summary_text }}</div>
+  </section>
+  {% endif %}
+
+  {% if n.apply_method %}
+  <section class="section">
+    <h2>신청 방법 (원문)</h2>
+    <div class="source-text">{{ n.apply_method }}</div>
+  </section>
+  {% endif %}
+
+  {% if n.attachments or n.print_file %}
+  <section class="section">
+    <h2>첨부파일</h2>
+    <ul class="files">
+      {% if n.print_file %}<li><a href="{{ n.print_file.url }}" rel="noopener nofollow">{{ n.print_file.name }}</a></li>{% endif %}
+      {% for f in n.attachments %}<li><a href="{{ f.url }}" rel="noopener nofollow">{{ f.name }}</a></li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <p class="fine source-line">
+    출처: {% if n.url %}<a href="{{ n.url }}" rel="noopener">{{ n.source_name }}</a>{% else %}{{ n.source_name }}{% endif %}
+    {% if n.registered_at %} · 등록일 {{ n.registered_at }}{% endif %}
+    {% if n.views %} · 원문 조회수 {{ "{:,}".format(n.views) }}{% endif %}
+  </p>
+</article>
+
+{% if related %}
+<section class="section">
+  <h2>같은 분야의 다른 공고</h2>
+  <div class="cards">{% for r in related %}{{ card(r) }}{% endfor %}</div>
+</section>
+{% endif %}
+{% endblock %}

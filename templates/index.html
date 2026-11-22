@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card, ad %}
+{% block title %}오늘 신청 가능한 정부지원사업 {{ stats.active }}건 | {{ site.site_name }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>지금 신청할 수 있는 지원사업 <span class="num">{{ stats.active }}</span>건</h1>
+  <p class="lead">기업마당 공고를 매일 아침 모아 마감일 순으로 정리합니다. 창업·자금·수출·인력 공고를 한 곳에서 확인하세요.</p>
+  <div class="stat-row">
+    <a class="stat stat-closing" href="{{ base }}/closing-soon/"><strong>{{ stats.closing }}</strong><span>이번 주 마감</span></a>
+    <a class="stat" href="{{ base }}/new/"><strong>{{ stats.new }}</strong><span>최근 {{ site.new_days }}일 새 공고</span></a>
+  </div>
+</section>
+
+<section class="filters" aria-label="공고 필터">
+  <label class="field field-search">
+    <span class="sr-only">검색</span>
+    <input id="f-q" type="search" placeholder="검색 (예: 예비창업, 수출바우처)" autocomplete="off">
+  </label>
+  <label class="field">
+    <span class="sr-only">분야</span>
+    <select id="f-cat">
+      <option value="">전체 분야</option>
+      {% for name, slug, count in categories %}<option value="{{ slug }}">{{ name }} ({{ count }})</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span class="sr-only">지역</span>
+    <select id="f-region">
+      <option value="">전체 지역</option>
+      {% for name, slug, count in regions if slug != 'nationwide' %}<option value="{{ slug }}">{{ name }} + 전국</option>{% endfor %}
+    </select>
+  </label>
+  <label class="check">
+    <input id="f-closing" type="checkbox"> 마감 임박만
+  </label>
+</section>
+
+<p class="result-count" aria-live="polite"><span data-count>{{ stats.active }}</span>건</p>
+
+<div class="cards" data-list>
+  {% for n in notices %}
+    {{ card(n) }}
+    {% if loop.index == 6 %}{{ ad() }}{% endif %}
+  {% endfor %}
+</div>
+<p class="empty" data-empty hidden>조건에 맞는 공고가 없습니다. 필터를 줄여 보세요.</p>
+
+{% if posts %}
+<section class="section">
+  <h2>지원사업 해설</h2>
+  <ul class="post-list">
+    {% for p in posts %}
+    <li><a href="{{ base }}{{ p.path }}">{{ p.title }}</a>{% if p.draft %} <span class="tag">초안</span>{% endif %}<span class="muted"> · {{ p.date }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

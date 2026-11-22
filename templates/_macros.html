@@ -1,0 +1,36 @@
+{% macro card(n) %}
+<article class="card" data-cat="{{ n.cat_slug }}" data-regions="{% for r, slug in n.region_links %}{{ slug }} {% endfor %}" data-status="{{ n.status }}" data-q="{{ n.search_text }}">
+  <a class="card-link" href="{{ base }}{{ n.path }}">
+    <div class="card-tags">
+      <span class="badge badge-{{ n.status }}">{{ n.dday_label }}</span>
+      <span class="tag">{{ n.cat_name }}</span>
+      {% for r, slug in n.region_links %}<span class="tag tag-ghost">{{ r }}</span>{% endfor %}
+      {% if n.is_new %}<span class="tag tag-new">NEW</span>{% endif %}
+    </div>
+    <h3 class="card-title">{{ n.title }}</h3>
+    {% if n.snippet %}<p class="card-summary">{{ n.snippet }}</p>{% endif %}
+    <p class="card-meta">{{ n.agency }}<span aria-hidden="true"> · </span>{{ n.period_display }}</p>
+  </a>
+</article>
+{% endmacro %}
+
+{% macro ad(label='광고') %}
+{% if ads_enabled and site.adsense_slot %}
+<div class="ad">
+  <ins class="adsbygoogle" style="display:block" data-ad-client="{{ site.adsense_client }}" data-ad-slot="{{ site.adsense_slot }}" data-ad-format="auto" data-full-width-responsive="true"></ins>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</div>
+{% elif sample %}
+<div class="ad ad-placeholder" aria-hidden="true">{{ label }} 자리 (애드센스 승인 후 자동 표시)</div>
+{% endif %}
+{% endmacro %}
+
+{% macro notice_list(notices) %}
+{% if notices %}
+<div class="cards">
+  {% for n in notices %}{{ card(n) }}{% endfor %}
+</div>
+{% else %}
+<p class="empty">지금은 해당하는 공고가 없습니다. 내일 아침 다시 확인해 주세요.</p>
+{% endif %}
+{% endmacro %}

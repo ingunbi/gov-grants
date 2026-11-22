@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ad %}
+{% block title %}{{ post.title }} | {{ site.site_name }}{% endblock %}
+{% block description %}{{ post.description or post.title }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="현재 위치"><a href="{{ base }}/">홈</a><span aria-hidden="true">›</span><a href="{{ base }}/posts/">해설</a></nav>
+<article class="post">
+  <header class="page-head">
+    <h1>{{ post.title }}</h1>
+    <p class="fine">{{ post.date }}{% if post.draft %} · <span class="tag">초안: 배포 시 제외</span>{% endif %}</p>
+  </header>
+  <div class="prose">{{ post.html | safe }}</div>
+  {{ ad() }}
+</article>
+{% endblock %}
