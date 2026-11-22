@@ -34,9 +34,7 @@ class Config:
     closing_soon_days: int
     new_days: int
     retain_closed_days: int
-    llm_model: str
-    llm_effort: str
-    llm_max_per_run: int
+    summary_limit: int  # 한 번에 요약 대기열(queue)에 넣을 최대 건수
     sample: bool = False
 
     @property
@@ -56,7 +54,6 @@ class Config:
 
 def load_config(sample: bool = False) -> Config:
     raw = json.loads((ROOT / "site.config.json").read_text(encoding="utf-8"))
-    llm = raw.get("llm", {})
     return Config(
         site_name=raw["site_name"],
         tagline=raw["tagline"],
@@ -66,8 +63,6 @@ def load_config(sample: bool = False) -> Config:
         closing_soon_days=int(raw.get("closing_soon_days", 7)),
         new_days=int(raw.get("new_days", 7)),
         retain_closed_days=int(raw.get("retain_closed_days", 180)),
-        llm_model=os.environ.get("LLM_MODEL") or llm.get("model", "claude-opus-5-5"),
-        llm_effort=os.environ.get("LLM_EFFORT") or llm.get("effort", "low"),
-        llm_max_per_run=int(os.environ.get("LLM_MAX_PER_RUN") or llm.get("max_per_run", 50)),
+        summary_limit=int(os.environ.get("SUMMARY_LIMIT") or raw.get("summary_limit", 50)),
         sample=sample,
     )

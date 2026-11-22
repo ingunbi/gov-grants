@@ -4,12 +4,12 @@
 #   Settings > Secrets and variables > Actions
 #     Secrets:
 #       BIZINFO_API_KEY          기업마당 API 키 (필수)
-#       CLAUDE_CODE_OAUTH_TOKEN  Claude 구독으로 요약할 때. 내 컴퓨터에서 `claude setup-token`으로 발급 (1년 유효)
-#       ANTHROPIC_API_KEY        구독 대신 API로 요약할 때 (선택)
+#       CLAUDE_CODE_OAUTH_TOKEN  Claude 구독으로 요약. 내 컴퓨터에서 `claude setup-token`으로 발급 (1년 유효)
 #       CLOUDFLARE_API_TOKEN     있으면 Cloudflare(Workers 정적 사이트)로 배포, 없으면 GitHub Pages
 #       CLOUDFLARE_ACCOUNT_ID    Cloudflare 계정 ID
 #     Variables: SITE_BASE_URL(GitHub Pages 주소), CF_BASE_URL(Cloudflare 주소),
-#                선택: SUMMARY_LIMIT(하루 요약 건수, 기본 50), LLM_MODEL, ADSENSE_CLIENT, ADSENSE_SLOT
+#                선택: SUMMARY_LIMIT(하루 요약 건수, 기본 50), ADSENSE_CLIENT, ADSENSE_SLOT
+#   키 등록은 ~/dev/services/grant-sites/scripts/set-secrets.sh 가 .github/required-secrets.txt를 읽어 한 번에 한다.
 #   GitHub Pages를 쓸 때만: Settings > Pages > Source: GitHub Actions
 name: daily-update
 
@@ -101,14 +101,6 @@ jobs:
       - name: 요약 결과 반영
         if: steps.check.outputs.ready == 'true' && steps.check.outputs.claude == 'true'
         run: python run.py import
-
-      # --- API로 요약 (ANTHROPIC_API_KEY가 있을 때만 실제로 호출) -------------
-      - name: API로 요약
-        if: steps.check.outputs.ready == 'true'
-        run: python run.py enrich
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
 
       - name: 빌드
         if: steps.check.outputs.ready == 'true'

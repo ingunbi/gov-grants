@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """지원사업 레이더 파이프라인.
 
-  python run.py all --sample   # API 키 없이 샘플 데이터로 전체 실행 (미리보기용)
-  python run.py all            # 수집 → 요약 → 빌드 (BIZINFO_API_KEY 필요)
-  python run.py fetch | enrich | build
+  python run.py all --sample   # 키 없이 샘플 데이터로 수집 → 빌드 (미리보기용)
+  python run.py all            # 수집 → 빌드 (BIZINFO_API_KEY 필요)
+  python run.py fetch | build
   python run.py serve          # dist/를 http://localhost:8000 에서 보기
+
+요약(Claude 구독, Claude Code):
+  python run.py queue                                  # 요약할 공고 → data/live/queue.json
+  claude -p "$(cat prompts/summarize.md)" --permission-mode acceptEdits --allowedTools "Read,Write,Edit"
+  python run.py import                                 # data/live/inbox.json → enrich.json
 """
 from __future__ import annotations
 
@@ -66,12 +71,6 @@ def cmd_fetch(cfg) -> None:
         store.save_enrich(cfg.data_dir, cache)
 
 
-def cmd_enrich(cfg, limit: int | None) -> None:
-    from pipeline import enrich
-
-    enrich.run(cfg, limit=limit)
-
-
 def cmd_build(cfg, drafts: bool) -> None:
     from pipeline import build
 
@@ -108,7 +107,7 @@ def main() -> None:
     from pipeline.config import load_config
 
     p = argparse.ArgumentParser(description="지원사업 레이더 파이프라인")
-    p.add_argument("command", choices=["fetch", "enrich", "build", "all", "serve", "queue", "import"])
+    p.add_argument("command", choices=["fetch", "build", "all", "serve", "queue", "import"])
     p.add_argument("files", nargs="*", help="import: Claude Code가 쓴 결과 파일들 (기본: data/<mode>/inbox.json)")
     p.add_argument("--sample", action="store_true", help="실데이터 대신 샘플 공고 사용 (data/sample/)")
     p.add_argument("--limit", type=int, default=None, help="요약할 최대 공고 수 (기본: 설정값)")
@@ -123,7 +122,7 @@ def main() -> None:
         from pipeline import enrich
 
         if args.command == "queue":
-            enrich.export_queue(cfg, args.limit if args.limit is not None else cfg.llm_max_per_run)
+            enrich.export_queue(cfg, args.limit if args.limit is not None else cfg.summary_limit)
         else:
             paths = [Path(f) for f in args.files] or [cfg.data_dir / enrich.INBOX_FILE]
             existing = [p for p in paths if p.exists()]
@@ -136,8 +135,6 @@ def main() -> None:
         return
     if args.command in ("fetch", "all"):
         cmd_fetch(cfg)
-    if args.command in ("enrich", "all"):
-        cmd_enrich(cfg, args.limit)
     if args.command in ("build", "all"):
         cmd_build(cfg, args.drafts)
 

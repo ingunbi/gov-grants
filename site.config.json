@@ -7,9 +7,5 @@
   "closing_soon_days": 7,
   "new_days": 7,
   "retain_closed_days": 180,
-  "llm": {
-    "model": "claude-opus-5-5",
-    "effort": "low",
-    "max_per_run": 50
-  }
+  "summary_limit": 50
 }
