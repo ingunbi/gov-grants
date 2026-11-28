@@ -1,5 +1,5 @@
 {% macro card(n) %}
-<article class="card" data-cat="{{ n.cat_slug }}" data-regions="{% for r, slug in n.region_links %}{{ slug }} {% endfor %}" data-status="{{ n.status }}" data-q="{{ n.search_text }}">
+<article class="card" data-cat="{{ n.cat_slug }}" data-regions="{% for r, slug in n.region_links %}{{ slug }} {% endfor %}" data-status="{{ n.status }}" data-q="{{ n.search_text }}" data-registered="{{ n.registered_sort }}">
   <a class="card-link" href="{{ base }}{{ n.path }}">
     <div class="card-tags">
       <span class="badge badge-{{ n.status }}">{{ n.dday_label }}</span>
@@ -8,6 +8,10 @@
       {% if n.is_new %}<span class="tag tag-new">NEW</span>{% endif %}
     </div>
     <h3 class="card-title">{{ n.title }}</h3>
+    <dl class="card-facts">
+      <div><dt>지원금</dt><dd>{{ n.card_amount }}</dd></div>
+      <div><dt>대상</dt><dd>{{ n.card_target }}</dd></div>
+    </dl>
     {% if n.snippet %}<p class="card-summary">{{ n.snippet }}</p>{% endif %}
     <p class="card-meta">{{ n.agency }}<span aria-hidden="true"> · </span>{{ n.period_display }}</p>
   </a>

@@ -53,6 +53,9 @@ GitHub Actions(`daily-update`)는 매일 06:00에 수집 → 요약 → 빌드 �
 
 ## Claude 구독으로 요약하기
 
+요약 대기열을 만들 때 기업마당 공식 PDF·HWPX 첨부를 내려받아 본문 발췌를 함께 넣습니다. PDF의 첫 16쪽에서 텍스트를 읽으며, 로컬 PDF 추출에는 Poppler의 `pdftotext`가 필요합니다(macOS에서는 `brew install poppler`). 이미지 스캔 PDF와 구형 HWP는 추출 대상에서 제외합니다. 읽을 수 없는 첨부는 건너뛰고 기존 공고 본문으로 요약합니다.
+
+
 요약은 Claude Code(구독)가 합니다. 매일 워크플로가 아래 순서로 돌고, 로컬에서도 같은 명령으로 돌릴 수 있습니다.
 
 ```bash

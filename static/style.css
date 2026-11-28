@@ -109,6 +109,12 @@ h1, h2, h3 { line-height: 1.35; letter-spacing: -0.01em; }
 .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; white-space: nowrap; padding: 0 4px; cursor: pointer; }
 .check input { width: 18px; height: 18px; accent-color: var(--closing); }
+.result-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 8px; }
+.result-bar .result-count { margin: 0; }
+.card-facts { display: grid; gap: 4px; margin: 6px 0 8px; font-size: 14px; }
+.card-facts div { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+.card-facts dt { color: var(--muted); }
+.card-facts dd { margin: 0; overflow-wrap: anywhere; }
 .result-count { color: var(--muted); font-size: 14px; margin: 16px 2px 8px; }
 .result-count span { color: var(--text); font-weight: 700; }
 
@@ -207,6 +213,7 @@ a.tag:hover { text-decoration: none; filter: brightness(0.97); }
 
 @media (max-width: 720px) {
   .filters { grid-template-columns: 1fr 1fr; top: 0; position: static; }
+  .card-link { padding: 13px 14px; }
   .field-search { grid-column: 1 / -1; }
   .check { grid-column: 1 / -1; }
   .notice, .post { padding: 18px 16px; }

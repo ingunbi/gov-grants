@@ -75,9 +75,13 @@ jobs:
           SUMMARY_LIMIT: ${{ vars.SUMMARY_LIMIT || '50' }}
         run: |
           npm install -g @anthropic-ai/claude-code
+          if ! command -v pdftotext >/dev/null; then
+            sudo apt-get update && sudo apt-get install -y poppler-utils || echo "::warning::PDF 텍스트 추출기를 설치하지 못했습니다."
+          fi
           python run.py queue --limit "$SUMMARY_LIMIT"
           claude -p "$(cat prompts/summarize.md)" \
             --permission-mode acceptEdits \
+            --tools "Read,Write,Edit" \
             --allowedTools "Read,Write,Edit" \
             --max-turns 30
 

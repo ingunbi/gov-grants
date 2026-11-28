@@ -93,8 +93,12 @@ def prepare(n: dict, enrich: dict, today: date, cfg: Config) -> dict:
     v["meta_description"] = _clip(
         f"{v['snippet']} 신청기간 {v['period_display']}. {n.get('agency', '')} 공고를 한눈에 정리했습니다.", 155
     )
+    ai = v["ai"] or {}
+    v["card_amount"] = ai.get("amount") or "공고문 확인"
+    v["card_target"] = " · ".join(ai.get("eligibility", [])[:2]) or n.get("target") or "공고문 확인"
+    v["registered_sort"] = first or ""
     v["search_text"] = " ".join(
-        [n["title"], n.get("agency", ""), n.get("executor", ""), n.get("target", ""), " ".join(n.get("hashtags", []))]
+        [n["title"], n.get("agency", ""), n.get("executor", ""), v["card_target"], v["card_amount"], v["snippet"], v["cat_name"], " ".join(n.get("regions", [])), " ".join(n.get("hashtags", []))]
     ).lower()
     v["path"] = f"/notice/{n['id']}/"
     return v

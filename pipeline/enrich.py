@@ -9,10 +9,13 @@
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
+import re
 
 from .config import Config, now_kst, today_kst
 from .status import notice_status
+from .sources.documents import attachment_text
 from . import store
 
 QUEUE_FILE = "queue.json"
@@ -35,7 +38,16 @@ SCHEMA = {
 }
 
 
-def build_notice_text(n: dict) -> str:
+# 원문·첨부에 <notice>, </notice>를 흉내 낸 문자열이 있으면 자료 구간이 일찍 끝난 것처럼 보일 수 있다.
+# 그 태그의 '<'만 전각 '＜'로 바꾼다. html.escape는 쓰지 않는다: "R&D"가 "R&amp;D"로 AI에 들어가 요약에 그대로 옮겨진다.
+NOTICE_TAG = re.compile(r"<(?=\s*/?\s*notice\b)", re.IGNORECASE)
+
+
+def _neutralize_tags(text: str) -> str:
+    return NOTICE_TAG.sub("＜", str(text))
+
+
+def build_notice_text(n: dict, document: str = "") -> str:
     """queue.json에 넣을 공고 원문. <notice>로 감싸 '자료'임을 분명히 한다."""
     fields = [
         ("공고명", n.get("title")),
@@ -47,8 +59,9 @@ def build_notice_text(n: dict) -> str:
         ("사업개요(원문)", n.get("summary_text")),
         ("신청방법(원문)", n.get("apply_method")),
         ("문의처", n.get("contact")),
+        ("공식 첨부 발췌", document),
     ]
-    body = "\n\n".join(f"[{k}]\n{v}" for k, v in fields if v)
+    body = "\n\n".join(f"[{k}]\n{_neutralize_tags(v)}" for k, v in fields if v)
     return f"<notice>\n{body}\n</notice>"
 
 
@@ -74,7 +87,17 @@ def export_queue(cfg: Config, limit: int) -> int:
     db = store.load_notices(cfg.data_dir)
     cache = store.load_enrich(cfg.data_dir)
     targets = select_targets(cfg, db, cache)
-    batch = [{"id": n["id"], "hash": n["hash"], "notice": build_notice_text(n)} for n in targets[:limit]]
+    selected = targets[:limit]
+    if cfg.sample:
+        documents = [""] * len(selected)
+    else:
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            documents = list(executor.map(attachment_text, selected))
+    batch = [
+        {"id": n["id"], "hash": n["hash"], "notice": build_notice_text(n, document)}
+        for n, document in zip(selected, documents, strict=True)
+    ]
+    print(f"[queue] 공식 첨부 텍스트 확보 {sum(bool(doc) for doc in documents)}건")
     path = cfg.data_dir / QUEUE_FILE
     path.write_text(json.dumps(batch, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[queue] {len(batch)}건을 {path.relative_to(cfg.data_dir.parent.parent)}에 썼습니다. (전체 대기 {len(targets)}건)")

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import card, ad %}
+{% from "_macros.html" import card, ad with context %}
 {% block title %}오늘 신청 가능한 정부지원사업 {{ stats.active }}건 | {{ site.site_name }}{% endblock %}
 {% block content %}
 <section class="hero">
@@ -35,7 +35,16 @@
   </label>
 </section>
 
-<p class="result-count" aria-live="polite"><span data-count>{{ stats.active }}</span>건</p>
+<div class="result-bar">
+  <p class="result-count" aria-live="polite"><span data-count>{{ stats.active }}</span>건</p>
+  <label class="field">
+    <span class="sr-only">정렬</span>
+    <select id="f-sort">
+      <option value="closing">마감 임박순</option>
+      <option value="newest">최신순</option>
+    </select>
+  </label>
+</div>
 
 <div class="cards" data-list>
   {% for n in notices %}

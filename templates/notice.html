@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import card, ad %}
+{% from "_macros.html" import card, ad with context %}
 {% block title %}{{ n.title }} - 신청기간·지원대상 정리 | {{ site.site_name }}{% endblock %}
 {% block description %}{{ n.meta_description }}{% endblock %}
 {% block og_type %}article{% endblock %}
